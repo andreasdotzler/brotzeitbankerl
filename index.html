@@ -45,7 +45,7 @@
 
     map.on('popupopen', function(e) {
       var marker = e.popup._source;
-      RW.render();
+      window.RW.render();
     });
 
     map.on('locationfound', onLocationFound);
@@ -100,6 +100,7 @@
                 "lng": "de"
             } 
         });
+        window.RW = RW;
         RW.render();
     };
 
