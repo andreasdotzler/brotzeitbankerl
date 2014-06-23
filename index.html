@@ -43,6 +43,11 @@
         map.setView(new L.LatLng(48.1333, 11.5667), 15);
     }
 
+    map.on('popupopen', function(e) {
+      var marker = e.popup._source;
+      RW.render();
+    });
+
     map.on('locationfound', onLocationFound);
     map.on('locationerror', onLocationError);
   	map.addLayer(osm);
