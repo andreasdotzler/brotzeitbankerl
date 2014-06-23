@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Testing the Rating-Widget</title>
+  <meta charset="utf-8" />
+</head>
+<body>
+
+<div class="rw-ui-container"></div>
+<script type="text/javascript">(function(d, t, e, m){
+    // Async Rating-Widget initialization.
+    window.RW_Async_Init = function(){
+        RW.init({
+            huid: "178715",
+            uid: "d2c251970ba851055d31611c1c8c8eab",
+            source: "website",
+            options: {
+                "urid": "3",
+                "advanced": {
+                    "layout": {
+                        "align": {
+                            "hor": "center",
+                            "ver": "top"
+                        }
+                    }
+                },
+                "style": "ratingwidget",
+                "lng": "de"
+            } 
+        });
+        RW.render();
+    };
+
+    // Append Rating-Widget JavaScript library.
+    var rw, s = d.getElementsByTagName(e)[0], id = "rw-js",
+        l = d.location, ck = "Y" + t.getFullYear() + 
+        "M" + t.getMonth() + "D" + t.getDate(), p = l.protocol,
+        f = (-1 < l.search.indexOf("DBG=") ? "" : ".min"),
+        a = ("https:" == p ? "secure." + m + "js/" : "js." + m);
+    if (d.getElementById(id)) return;              
+    rw = d.createElement(e);
+    rw.id = id; rw.async = true; rw.type = "text/javascript";
+    rw.src = p + "//" + a + "external" + f + ".js?ck=" + ck;
+    s.parentNode.insertBefore(rw, s);
+}(document, new Date(), "script", "rating-widget.com/"));
+</script>
+</body>
+</html>
