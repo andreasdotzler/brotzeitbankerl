@@ -136,7 +136,7 @@ L.OverPassLayer = L.FeatureGroup.extend({
   },
 
   _poiInfo: function(tags,id) {
-    var link = '<a href="http://www.openstreetmap.org/edit?editor=id&node='+id+'">Edit this entry in iD</a><br><div class="rw-ui-container" data-urid="'+id+'"></div>';
+    var link = '<a href="http://www.openstreetmap.org/edit?editor=id&node='+id+'">Edit this entry in iD</a><br>';
     var r = $('<table>');
     for (key in tags)
       r.append($('<tr>').append($('<th>').text(key)).append($('<td>').text(tags[key])));
