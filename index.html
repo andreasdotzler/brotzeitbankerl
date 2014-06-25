@@ -54,7 +54,7 @@
     map.on('popupopen', function(e) {
       var marker = e.popup._source;
       window.RW.render();
-      e.update();
+      e.popup.update();
     });
 
     map.on('locationfound', onLocationFound);
