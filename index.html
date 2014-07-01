@@ -34,6 +34,17 @@
       height: 100%;
       width: 100%;
     }
+     #map {
+      height: 100%;
+      width: 70%;
+      margin-right: 30%;
+    }
+    div#inforight {
+        position: absolute;
+        top: 1em;
+        right: 1%; 
+        width: 29%;
+    }
   </style>
 </head>
 <body>
@@ -41,8 +52,8 @@
 <div id="map"></div>
 
   <script>
-
-
+    var listbenches = '<div id="rightinfo"> ';
+    var firstcall = true;
     var attr_impress = '<a href="../impressum.html">Impressum</a>',
     attr_osm = 'Map data &copy; <a href="http://openstreetmap.org/">OpenStreetMap</a> contributors',
     attr_overpass = 'POI via <a href="http://www.overpass-api.de/">Overpass API</a>';
@@ -64,19 +75,44 @@
     map.on('popupopen', function(e) {
       var marker = e.popup._source;
       window.RW.render();
-      document.getElementById("map").style.width = '70%';
     });
 
     map.on('locationfound', onLocationFound);
     map.on('locationerror', onLocationError);
   	map.addLayer(osm);
-    map.locate({setView: true, maxZoom: 16});
 
-
+    var bankerlid = location.search.split('bankerl=')[1] ? location.search.split('bankerl=')[1] : 0;
+    if (bankerlid != 0)
+    {
+        url = "http://overpass-api.de/api/interpreter?data=[out:json];node(" + bankerlid + ");out;";
+        $.getJSON(url, null, function (data) {
+            if (data.elements.length == 0){
+                alert("Des Bankerl Nummer " + bankerlid + "gibts nicht!");
+                return;
+            }
+            
+            e = data.elements[0];
+            map.setView(new L.LatLng(e.lat, e.lon), 15);
+            });
+    }
+    else{
+        map.locate({setView: true, maxZoom: 16});
+    }
+    
+    
     //OverPassAPI overlay
     var opl = new L.OverPassLayer({
       query: "http://overpass-api.de/api/interpreter?data=[out:json];node(BBOX)[amenity=bench];out;",
       callback: function(data) {
+        if (firstcall) {
+            var bestbankerl = data.elements.slice(0,7);
+            $.each(bestbankerl , function( key, value ) {
+                //alert( key + ": " + value.id );
+                $("#inforight").append(
+                "<li><a href = \"index.html?bankerl="  + value.id + "\">" + value.id + "</a></li>");
+            });
+            firstcall = false;
+        }
         for(i=0;i<data.elements.length;i++) {
           e = data.elements[i];
 
@@ -92,10 +128,12 @@
           })
           .bindPopup(popup);
           this.instance.addLayer(circle);
+          this.instance._osmidtoleafletid[e.id] = this.instance.getLayerId(circle);
         }
       },
     });
     map.addLayer(opl);
+    
 
   </script>
 <script type="text/javascript">(function(d, t, e, m){
@@ -137,5 +175,7 @@
 }(document, new Date(), "script", "rating-widget.com/"));
 </script>
 </body>
+<div id="inforight">
+</div>
 </html>
 

@@ -132,6 +132,7 @@ L.OverPassLayer = L.FeatureGroup.extend({
     this._layers = {};
     // save position of the layer or any options from the constructor
     this._ids = {};
+    this._osmidtoleafletid = {};
     this._requested = {};
   },
 
