@@ -137,8 +137,12 @@ L.OverPassLayer = L.FeatureGroup.extend({
   },
 
   _poiInfo: function(tags,id) {
-    var link = '<a href="http://www.brotzeitbankerl?bankerl=='+id+'">Direkter Link zum Bankerl</a><br>';
-    link = link + '<a href="http://www.openstreetmap.org/edit?editor=id&node='+id+'">Bankerl bei Openstreetmap bearbeiten</a><br><div class="rw-ui-container" data-urid="'+id+'"></div>';
+    var link = '<table><tr><td>';    
+        link = link + '<a href="http://www.brotzeitbankerl?bankerl=='+id+'">Direkter Link</a><br>';
+    link = link + '</td></tr>';
+    link = link + '<tr><td>';
+    link = link + '<a href="http://www.openstreetmap.org/edit?editor=id&node='+id+'">Bearbeiten</a><br><div class="rw-ui-container" data-urid="'+id+'"></div>';
+    link = link + '</tr></td></table>';
     var r = $('<table>');
     for (key in tags)
       r.append($('<tr>').append($('<th>').text(key)).append($('<td>').text(tags[key])));
