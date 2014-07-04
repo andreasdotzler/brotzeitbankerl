@@ -138,7 +138,7 @@ L.OverPassLayer = L.FeatureGroup.extend({
 
   _poiInfo: function(tags,id) {
     var link = '<table><tr><td>';    
-        link = link + '<a href="http://www.brotzeitbankerl/index.html?bankerl='+id+'">Direkter Link</a><br>';
+        link = link + '<a href="http://www.brotzeitbankerl.de/index.html?bankerl='+id+'">Direkter Link</a><br>';
     link = link + '</td></tr>';
     link = link + '<tr><td>';
     link = link + '<a href="http://www.openstreetmap.org/edit?editor=id&node='+id+'">Bearbeiten</a><br><div class="rw-ui-container" data-urid="'+id+'"></div>';
