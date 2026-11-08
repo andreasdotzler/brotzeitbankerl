@@ -1,128 +1,136 @@
+function fetchJson(url, timeoutMs) {
+  var controller = new AbortController();
+  var timer = setTimeout(function () { controller.abort(); }, timeoutMs);
+  return fetch(url, { signal: controller.signal }).then(function (res) {
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    return res.json();
+  }).then(function (data) {
+    clearTimeout(timer);
+    return data;
+  }, function (err) {
+    clearTimeout(timer);
+    throw err;
+  });
+}
+
+function fetchOverpass(url, primaryTimeout, fallbackTimeout) {
+  return fetchJson(url, primaryTimeout || 10000).catch(function () {
+    var fallback = url.replace("https://overpass-api.de/", "https://overpass.openstreetmap.fr/");
+    if (fallback === url) throw new Error("overpass failed");
+    return fetchJson(fallback, fallbackTimeout || 20000);
+  });
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, function (ch) {
+    return ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      "\"": "&quot;",
+      "'": "&#39;"
+    })[ch];
+  });
+}
+
 L.Control.MinZoomIdenticator = L.Control.extend({
-	options: {
-		position: 'bottomleft',
-    },
+  options: {
+    position: "bottomleft"
+  },
 
-    /**
-     * map: layerId -> zoomlevel
-     */
-    _layers: {},
+  _layers: {},
 
-    /** TODO check if nessesary
-     */
-	initialize: function (options) {
-		L.Util.setOptions(this, options);
-        this._layers = new Object();
-	},
+  initialize: function (options) {
+    L.Util.setOptions(this, options);
+    this._layers = {};
+  },
 
-    /**
-     * adds a layer with minzoom information to this._layers
-     */
-    _addLayer: function(layer) {
-        var minzoom = 15;
-        if (layer.options.minzoom) {
-            minzoom = layer.options.minzoom;
-        }
-        this._layers[layer._leaflet_id] = minzoom;
-        this._updateBox(null);
-    },
-    
-    /**
-     * removes a layer from this._layers
-     */
-    _removeLayer: function(layer) {
-        this._layers[layer._leaflet_id] = null;
-        this._updateBox(null);
-    },
+  _addLayer: function (layer) {
+    var minzoom = 15;
+    if (layer.options.minzoom) minzoom = layer.options.minzoom;
+    this._layers[layer._leaflet_id || L.stamp(layer)] = minzoom;
+    this._updateBox(null);
+  },
 
-    _getMinZoomLevel: function() {
-        var minZoomlevel=-1;
-        for(var key in this._layers) {
-            if ((this._layers[key] != null)&&(this._layers[key] > minZoomlevel)) {
-                minZoomlevel = this._layers[key];
-            }
-        }
-        return minZoomlevel;
-    },
+  _removeLayer: function (layer) {
+    this._layers[layer._leaflet_id || L.stamp(layer)] = null;
+    this._updateBox(null);
+  },
 
-    onAdd: function (map) {
-        this._map = map;
-        map.zoomIndecator = this;
+  _getMinZoomLevel: function () {
+    var minZoomlevel = -1;
+    for (var key in this._layers) {
+      if (this._layers[key] != null && this._layers[key] > minZoomlevel) {
+        minZoomlevel = this._layers[key];
+      }
+    }
+    return minZoomlevel;
+  },
 
-        var className = this.className;
-        container = this._container = L.DomUtil.create('div', className);
-        container.style.fontSize = "2em";
-        container.style.background = "#ffffff";
-        container.style.backgroundColor = "rgba(255,255,255,0.7)";
-        container.style.borderRadius = "10px";
-        container.style.padding = "1px 15px";
-        container.style.oppacity = "0.5";
-        map.on('moveend', this._updateBox, this);
-        this._updateBox(null);
+  onAdd: function (map) {
+    this._map = map;
+    map.zoomIndecator = this;
+    var container = this._container = L.DomUtil.create("div", "bb-zoom-hint");
+    L.DomEvent.disableClickPropagation(container);
+    L.DomEvent.disableScrollPropagation(container);
+    map.on("zoomend moveend", this._updateBox, this);
+    this._updateBox(null);
+    return container;
+  },
 
-        //        L.DomEvent.disableClickPropagation(container);
-        return container;
-    },
+  onRemove: function (map) {
+    map.off("zoomend moveend", this._updateBox, this);
+    this._map = null;
+  },
 
-    onRemove: function(map) {
-        L.Control.prototype.onRemove.call(this, map);
-        map.off({
-            'moveend': this._updateBox
-        }, this);
-
-        this._map = null;
-    },
-
-    _updateBox: function (event) {
-        //console.log("map moved -> update Container...");
-		if (event != null) {
-            L.DomEvent.preventDefault(event);
-        }
-        var minzoomlevel = this._getMinZoomLevel();
-        if (minzoomlevel == -1) {
-            this._container.innerHTML = "no layer assigned";
-        }else{
-            this._container.innerHTML = "current Zoom-Level: "+this._map.getZoom()+" all data at Level: "+minzoomlevel;
-        }
-
-        if (this._map.getZoom() >= minzoomlevel) {
-            this._container.style.display = 'none';
-        }else{
-            this._container.style.display = 'block';
-        }
-    },
-
-  className : 'leaflet-control-minZoomIndecator'
+  _updateBox: function () {
+    if (!this._container || !this._map) return;
+    var minzoomlevel = this._getMinZoomLevel();
+    if (minzoomlevel === -1) {
+      this._container.textContent = "Keine Ebene";
+      this._container.style.display = "block";
+      return;
+    }
+    this._container.textContent = "Bitte weiter hineinzoomen (ab Stufe " + minzoomlevel + ").";
+    this._container.style.display = this._map.getZoom() >= minzoomlevel ? "none" : "block";
+  }
 });
 
-L.LatLngBounds.prototype.toOverpassBBoxString = function (){
-  var a = this._southWest,
-      b = this._northEast;
+L.LatLngBounds.prototype.toOverpassBBoxString = function () {
+  var a = this.getSouthWest();
+  var b = this.getNorthEast();
   return [a.lat, a.lng, b.lat, b.lng].join(",");
-}
+};
 
 L.OverPassLayer = L.FeatureGroup.extend({
   options: {
     minzoom: 15,
-    query: "http://overpass-api.de/api/interpreter?data=[out:json];(node(BBOX)[organic];node(BBOX)[second_hand];);out qt;",
-    callback: function(data) {
-        if (this.instance._map == null) {
-            console.error("_map == null");
-        }
-      for(i=0;i<data.elements.length;i++) {
-        e = data.elements[i];
-
-        if (e.id in this.instance._ids) return;
+    query: "[out:json][timeout:25];(node(BBOX)[amenity=bench];node(BBOX)[leisure=picnic_table];);out;",
+    callback: function (data) {
+      var elements = data && data.elements ? data.elements : [];
+      for (var i = 0; i < elements.length; i++) {
+        var e = elements[i];
+        if (e.type && e.type !== "node") continue;
+        if (e.lat == null || e.lon == null) continue;
+        if (e.id in this.instance._ids) continue;
         this.instance._ids[e.id] = true;
-        var pos = new L.LatLng(e.lat, e.lon);
-        var popup = this.instance._poiInfo(e.tags,e.id);
-        var circle = L.circle(pos, 50, {
-            color: 'green',
-            fillColor: '#3f0',
-            fillOpacity: 0.5
-        })
-          .bindPopup(popup);
-          this.instance.addLayer(circle);
+        var tags = e.tags || {};
+        var isTable = tags.leisure === "picnic_table";
+        var marker = L.circleMarker([e.lat, e.lon], {
+          radius: isTable ? 8 : 6,
+          color: isTable ? "#8a5a00" : "#1d4e89",
+          fillColor: isTable ? "#f0a202" : "#4c8ed9",
+          fillOpacity: 0.9,
+          weight: 2
+        });
+        marker.bindPopup(this.instance._poiInfo(tags, e.id, e.lat, e.lon), {
+          minWidth: 220,
+          maxWidth: 320,
+          keepInView: true,
+          autoPanPaddingTopLeft: L.point(16, 24),
+          autoPanPaddingBottomRight: L.point(16, 72)
+        });
+        this.instance.addLayer(marker);
       }
     }
   },
@@ -130,153 +138,135 @@ L.OverPassLayer = L.FeatureGroup.extend({
   initialize: function (options) {
     L.Util.setOptions(this, options);
     this._layers = {};
-    // save position of the layer or any options from the constructor
     this._ids = {};
-    this._osmidtoleafletid = {};
     this._requested = {};
+    this._overpassWarned = false;
   },
 
-  _poiInfo: function(tags,id) {
-    var link = '<table><tr><td>';    
-        link = link + '<a href="http://www.brotzeitbankerl.de/index.html?bankerl='+id+'">Direkter Link</a><br>';
-    link = link + '</td></tr>';
-    link = link + '<tr><td>';
-    link = link + '<a href="http://www.openstreetmap.org/edit?editor=id&node='+id+'">Bearbeiten</a><br><div class="rw-ui-container" data-urid="'+id+'"></div>';
-    link = link + '</tr></td></table>';
-    var r = $('<table>');
-    for (key in tags)
-      r.append($('<tr>').append($('<th>').text(key)).append($('<td>').text(tags[key])));
-    return link + $('<div>').append(r).html();
+  _poiInfo: function (tags, id, lat, lon) {
+    var isTable = tags.leisure === "picnic_table";
+    var pair = lat + "," + lon;
+    var html = '<div class="bb-popup">';
+    html += '<p class="bb-type">' + (isTable ? "Picknicktisch" : "Bankerl") + "</p>";
+    html += '<div class="bb-actions">';
+    html += '<a href="https://www.brotzeitbankerl.de/index.html?bankerl=' + encodeURIComponent(id) + '">Direkter Link</a>';
+    html += '<a href="https://www.openstreetmap.org/edit?editor=id&amp;node=' + encodeURIComponent(id) + '" target="_blank" rel="noopener">Bei OpenStreetMap bearbeiten</a>';
+    html += "</div>";
+    html += '<p class="bb-route-label">Route</p>';
+    html += '<div class="bb-route">';
+    html += '<a href="https://www.google.com/maps/dir/?api=1&amp;destination=' + encodeURIComponent(pair) + '&amp;travelmode=walking" target="_blank" rel="noopener">Google Maps</a>';
+    html += '<a href="https://maps.apple.com/?daddr=' + encodeURIComponent(pair) + '&amp;dirflg=w" target="_blank" rel="noopener">Apple Karten</a>';
+    html += '<a href="https://www.openstreetmap.org/directions?engine=fossgis_osrm_foot&amp;to=' + encodeURIComponent(pair) + '" target="_blank" rel="noopener">OpenStreetMap</a>';
+    html += '<a href="https://www.komoot.com/plan/@' + encodeURIComponent(lat) + "," + encodeURIComponent(lon) + ',16z?sport=hike" target="_blank" rel="noopener">Komoot Planer</a>';
+    html += "</div>";
+    html += '<div class="bb-tags-wrap"><table class="bb-tags">';
+    for (var key in tags) {
+      if (!Object.prototype.hasOwnProperty.call(tags, key)) continue;
+      html += "<tr><th>" + escapeHtml(key) + "</th><td>" + escapeHtml(tags[key]) + "</td></tr>";
+    }
+    html += "</table></div></div>";
+    return html;
   },
 
-  /**
-   * splits the current view in uniform bboxes to allow caching
-   */
-  long2tile: function (lon,zoom) { return (Math.floor((lon+180)/360*Math.pow(2,zoom))); },
-  lat2tile: function (lat,zoom)  {
-      return (Math.floor((1-Math.log(Math.tan(lat*Math.PI/180) + 1/Math.cos(lat*Math.PI/180))/Math.PI)/2 *Math.pow(2,zoom))); 
+  long2tile: function (lon, zoom) {
+    return Math.floor((lon + 180) / 360 * Math.pow(2, zoom));
   },
-  tile2long: function (x,z) {
-      return (x/Math.pow(2,z)*360-180);
+  lat2tile: function (lat, zoom) {
+    return Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, zoom));
   },
-  tile2lat: function (y,z) {
-      var n=Math.PI-2*Math.PI*y/Math.pow(2,z);
-      return (180/Math.PI*Math.atan(0.5*(Math.exp(n)-Math.exp(-n))));
+  tile2long: function (x, z) {
+    return x / Math.pow(2, z) * 360 - 180;
   },
-  _view2BBoxes: function(l,b,r,t) {
-      //console.log(l+"\t"+b+"\t"+r+"\t"+t);
-      //this.addBBox(l,b,r,t);
-      //console.log("calc bboxes");
-      var requestZoomLevel= 14;
-      //get left tile index
-      var lidx = this.long2tile(l,requestZoomLevel);
-      var ridx = this.long2tile(r,requestZoomLevel);
-      var tidx = this.lat2tile(t,requestZoomLevel);
-      var bidx = this.lat2tile(b,requestZoomLevel);
+  tile2lat: function (y, z) {
+    var n = Math.PI - 2 * Math.PI * y / Math.pow(2, z);
+    return 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+  },
 
-      //var result;
-      var result = new Array();
-      for (var x=lidx; x<=ridx; x++) {
-          for (var y=tidx; y<=bidx; y++) {//in tiles tidx<=bidx
-              var left = Math.round(this.tile2long(x,requestZoomLevel)*1000000)/1000000;
-              var right = Math.round(this.tile2long(x+1,requestZoomLevel)*1000000)/1000000;
-              var top = Math.round(this.tile2lat(y,requestZoomLevel)*1000000)/1000000;
-              var bottom = Math.round(this.tile2lat(y+1,requestZoomLevel)*1000000)/1000000;
-              //console.log(left+"\t"+bottom+"\t"+right+"\t"+top);
-              //this.addBBox(left,bottom,right,top);
-              //console.log("http://osm.org?bbox="+left+","+bottom+","+right+","+top);
-              result.push( new L.LatLngBounds(new L.LatLng(bottom, left),new L.LatLng(top, right)));
-          }
+  _view2BBoxes: function (l, b, r, t) {
+    var requestZoomLevel = 14;
+    var lidx = this.long2tile(l, requestZoomLevel);
+    var ridx = this.long2tile(r, requestZoomLevel);
+    var tidx = this.lat2tile(t, requestZoomLevel);
+    var bidx = this.lat2tile(b, requestZoomLevel);
+    var result = [];
+    for (var x = lidx; x <= ridx; x++) {
+      for (var y = tidx; y <= bidx; y++) {
+        var left = Math.round(this.tile2long(x, requestZoomLevel) * 1000000) / 1000000;
+        var right = Math.round(this.tile2long(x + 1, requestZoomLevel) * 1000000) / 1000000;
+        var top = Math.round(this.tile2lat(y, requestZoomLevel) * 1000000) / 1000000;
+        var bottom = Math.round(this.tile2lat(y + 1, requestZoomLevel) * 1000000) / 1000000;
+        result.push(L.latLngBounds(L.latLng(bottom, left), L.latLng(top, right)));
       }
-      //console.log(result);
-      return result;
+    }
+    return result;
   },
 
-  addBBox: function (l,b,r,t) {
-      var polygon = L.polygon([
-              [t, l],
-              [b, l],
-              [b, r],
-              [t, r]
-              ]).addTo(this._map);
+  _overpassUrl: function (query) {
+    return "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query);
   },
 
   onMoveEnd: function () {
-      console.log("load Pois");
-      //console.log(this._map.getBounds());
-      if (this._map.getZoom() >= this.options.minzoom) {
-          //var bboxList = new Array(this._map.getBounds());
-          var bboxList = this._view2BBoxes(
-                  this._map.getBounds()._southWest.lng,
-                  this._map.getBounds()._southWest.lat,
-                  this._map.getBounds()._northEast.lng,
-                  this._map.getBounds()._northEast.lat);
-
-          for (var i=0; i<bboxList.length; i++) {
-              var bbox = bboxList[i];
-              var x = bbox._southWest.lng;
-              var y = bbox._northEast.lat;
-              if ((x in this._requested) && (y in this._requested[x]) && (this._requested[x][y] == true)) {
-                  continue;
-              }
-              if (!(x in this._requested)) {
-                  this._requested[x] = {};
-              }
-              this._requested[x][y] = true;
-              //this.addBBox(x,bbox._southWest.lat,bbox._northEast.lng,y);
-
-              $.ajax({
-                  url: this.options.query.replace(/(BBOX)/g, bbox.toOverpassBBoxString()),
-                  context: { instance: this },
-                  crossDomain: true,
-                  dataType: "json",
-                  data: {},
-                  success: this.options.callback
-              });
+    if (!this._map || this._map.getZoom() < this.options.minzoom) return;
+    var bounds = this._map.getBounds();
+    var bboxList = this._view2BBoxes(
+      bounds.getSouthWest().lng,
+      bounds.getSouthWest().lat,
+      bounds.getNorthEast().lng,
+      bounds.getNorthEast().lat
+    );
+    var self = this;
+    for (var i = 0; i < bboxList.length; i++) {
+      var bbox = bboxList[i];
+      var x = bbox.getSouthWest().lng;
+      var y = bbox.getNorthEast().lat;
+      if (!this._requested[x]) this._requested[x] = {};
+      if (this._requested[x][y]) continue;
+      this._requested[x][y] = "pending";
+      var url = this._overpassUrl(this.options.query.replace(/BBOX/g, bbox.toOverpassBBoxString()));
+      (function (tileX, tileY, requestUrl) {
+        fetchOverpass(requestUrl).then(function (data) {
+          self._requested[tileX][tileY] = true;
+          if (self._map == null) return;
+          self.options.callback.call({ instance: self }, data);
+        }).catch(function () {
+          delete self._requested[tileX][tileY];
+          if (!self._overpassWarned) {
+            self._overpassWarned = true;
+            console.error("Overpass request failed");
           }
-      }
+          if (!self._retried) {
+            self._retried = true;
+            setTimeout(function () {
+              if (self._map) self.onMoveEnd();
+            }, 3000);
+          }
+        });
+      })(x, y, url);
+    }
   },
 
   onAdd: function (map) {
-      this._map = map;
-      if (map.zoomIndecator) {
-          this._zoomControl = map.zoomIndecator;
-          this._zoomControl._addLayer(this);
-      }else{
-          this._zoomControl = new L.Control.MinZoomIdenticator();
-          map.addControl(this._zoomControl);
-          this._zoomControl._addLayer(this);
-      }
-
-      this.onMoveEnd();
-      if (this.options.query.indexOf("(BBOX)") != -1) {
-          map.on('moveend', this.onMoveEnd, this);
-      }
-      console.log("add layer");
+    this._map = map;
+    if (map.zoomIndecator) {
+      this._zoomControl = map.zoomIndecator;
+      this._zoomControl._addLayer(this);
+    } else {
+      this._zoomControl = new L.Control.MinZoomIdenticator();
+      map.addControl(this._zoomControl);
+      this._zoomControl._addLayer(this);
+    }
+    this.onMoveEnd();
+    if (this.options.query.indexOf("(BBOX)") !== -1) {
+      map.on("moveend", this.onMoveEnd, this);
+    }
   },
 
   onRemove: function (map) {
-      console.log("remove layer");
-      L.LayerGroup.prototype.onRemove.call(this, map);
-      this._ids = {};
-      this._requested = {};
-      this._zoomControl._removeLayer(this);
-
-      map.off({
-          'moveend': this.onMoveEnd
-      }, this);
-
-      this._map = null;
-  },
-
-  getData: function () {
-    console.log(this._data);
-    return this._data;
+    L.LayerGroup.prototype.onRemove.call(this, map);
+    this._ids = {};
+    this._requested = {};
+    this._zoomControl._removeLayer(this);
+    map.off("moveend", this.onMoveEnd, this);
+    this._map = null;
   }
-
 });
-
-//FIXME no idea why the browser crashes with this code
-//L.OverPassLayer = function (options) {
-//  return new L.OverPassLayer(options);
-//};

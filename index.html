@@ -1,198 +1,193 @@
 <!DOCTYPE html>
-<html>
+<html lang="de">
 <head>
   <title>Brotzeitbankerl</title>
   <meta charset="utf-8" />
-  <meta name="description" content="Übersicht über alle Brotzeitbankerl der Welt mit Möglichkeit diese zu Bewerten und bei OpenStreetMap zu editieren." />
-  <meta name="keywords" content="Brotzeitbankerl, Brotzeit, Bankerl" />
+  <meta name="description" content="Karte von Bänken und Picknicktischen, mit Link zum Bearbeiten bei OpenStreetMap und zur Fußroute." />
+  <meta name="keywords" content="Brotzeitbankerl, Brotzeit, Bankerl, Picknicktisch" />
   <meta name="author" content="Andreas Dotzler">
   <meta name="robots" content="index, follow">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="http://code.jquery.com/jquery-1.8.0.min.js"></script>
-  <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.6.2/leaflet.css" />
-  <script src="http://cdn.leafletjs.com/leaflet-0.6.2/leaflet-src.js"></script>
-  <script>
-  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
-    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
-    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
-    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
-
-    ga('create', 'UA-52265355-1', 'brotzeitbankerl.de');
-    ga('send', 'pageview');
-  </script>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="OverPassLayer.js"></script>
   <style>
-    .leaflet-popup-content {
-      width:auto !important;
-    }
-    body {
-      padding: 0;
-      margin: 0;
-    }
     html, body, #map {
       height: 100%;
       width: 100%;
+      margin: 0;
+      padding: 0;
     }
-     #map {
-      height: 100%;
-      width: 100%;
-      margin-right: 0%;
+    body {
+      font-family: sans-serif;
     }
-    div#inforight {
-        position: absolute;
-        top: 1em;
-        right: 0%; 
-        width: 30%;
+    .leaflet-bottom { margin-bottom: env(safe-area-inset-bottom); }
+    .leaflet-top { margin-top: env(safe-area-inset-top); }
+    .leaflet-left { margin-left: env(safe-area-inset-left); }
+    .leaflet-right { margin-right: env(safe-area-inset-right); }
+    .bb-legend, .bb-zoom-hint {
+      background: rgba(255, 255, 255, 0.92);
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 15px;
+      line-height: 1.4;
+      max-width: calc(100vw - 24px);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
     }
-    div#disqus_thread {
-        padding: 1em;
+    .bb-legend .swatch {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin: 0 6px 0 12px;
+      vertical-align: -1px;
+      box-sizing: border-box;
+    }
+    .bb-legend .swatch:first-child { margin-left: 0; }
+    .bb-legend .swatch.bench { background: #4c8ed9; border: 2px solid #1d4e89; }
+    .bb-legend .swatch.table { background: #f0a202; border: 2px solid #8a5a00; }
+    .leaflet-popup-content {
+      width: auto !important;
+      max-width: calc(100vw - 2rem);
+      margin: 12px 14px;
+      font-size: 16px;
+      line-height: 1.35;
+    }
+    .bb-popup {
+      width: min(260px, calc(100vw - 72px));
+    }
+    .bb-type { font-weight: 700; margin: 0 0 8px; }
+    .bb-route-label { margin: 10px 0 4px; font-size: 14px; }
+    .bb-actions, .bb-route {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .bb-actions a, .bb-route a {
+      flex: 1 1 140px;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 10px;
+      box-sizing: border-box;
+      background: #f4f1ea;
+      border-radius: 8px;
+      text-align: center;
+      text-decoration: none;
+      color: #1a1a1a;
+      touch-action: manipulation;
+    }
+    .bb-tags-wrap { max-height: 30vh; overflow: auto; margin-top: 10px; }
+    .bb-tags { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .bb-tags th, .bb-tags td {
+      text-align: left;
+      vertical-align: top;
+      padding: 2px 8px 2px 0;
+    }
+    @media (max-width: 600px) {
+      .bb-actions a, .bb-route a { flex-basis: 100%; }
     }
   </style>
 </head>
 <body>
-
 <div id="map"></div>
-<div id="inforight">
-</div>
+<script>
+  var attrImpress = '<a href="https://andreasdotzler.github.io/impressum.html">Impressum</a>';
+  var attrOsm = 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+  var attrOverpass = 'POI via <a href="https://www.overpass-api.de/">Overpass API</a>';
+  var map = L.map("map");
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    opacity: 0.7,
+    attribution: [attrOsm, attrOverpass, attrImpress].join(" | ")
+  }).addTo(map);
 
-  <script>
-    var listbenches = '<div id="rightinfo"> ';
-    var firstcall = true;
-    var attr_impress = '<a href="http://andreasdotzler.github.io/impressum.html">Impressum</a>',
-    attr_osm = 'Map data &copy; <a href="http://openstreetmap.org/">OpenStreetMap</a> contributors',
-    attr_overpass = 'POI via <a href="http://www.overpass-api.de/">Overpass API</a>';
-    var osm = new L.TileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {opacity: 0.7, attribution: [attr_osm, attr_overpass, attr_impress].join(' | ')});
-  	//var map = new L.Map('map').addLayer(osm).setView(new L.LatLng(52.265, 10.524), 10);
-  	var map = new L.Map('map');
-    
-    function onLocationFound(e) {
-      var radius = e.accuracy / 2;
-      L.marker(e.latlng).addTo(map)
-        .bindPopup("You are within " + radius + " meters from this point").openPopup();
-      L.circle(e.latlng, radius).addTo(map);
+  var Legend = L.Control.extend({
+    options: { position: "bottomleft" },
+    onAdd: function () {
+      var div = L.DomUtil.create("div", "bb-legend");
+      div.innerHTML = '<span class="swatch bench"></span>Bankerl<span class="swatch table"></span>Picknicktisch';
+      L.DomEvent.disableClickPropagation(div);
+      L.DomEvent.disableScrollPropagation(div);
+      return div;
     }
+  });
 
-    function onLocationError(e) {
-        map.setView(new L.LatLng(48.1333, 11.5667), 15);
+  var opl = new L.OverPassLayer({
+    query: "[out:json][timeout:25];(node(BBOX)[amenity=bench];node(BBOX)[leisure=picnic_table];);out;"
+  });
+  var layerAdded = false;
+
+  function ensureLayer() {
+    if (!layerAdded) {
+      map.addLayer(opl);
+      map.addControl(new Legend());
+      layerAdded = true;
     }
+  }
 
-    map.on('popupopen', function(e) {
-      var marker = e.popup._source;
-      window.RW.render();
+  function onLocationFound(e) {
+    L.marker(e.latlng).addTo(map).bindPopup("Du bist ungefähr hier.");
+    L.circle(e.latlng, {
+      radius: e.accuracy / 2,
+      color: "#1d4e89",
+      weight: 1,
+      fillOpacity: 0.08
+    }).addTo(map);
+  }
+
+  function showArea(lat, lon, zoom) {
+    map.setView([lat, lon], zoom);
+    ensureLayer();
+  }
+
+  map.on("locationfound", onLocationFound);
+  map.on("locationerror", function () {
+    showArea(48.1333, 11.5667, 15);
+  });
+  map.on("popupopen", function (e) {
+    requestAnimationFrame(function () {
+      var el = e.popup.getElement();
+      if (!el) return;
+      var rect = el.getBoundingClientRect();
+      var pad = 8;
+      var dx = 0;
+      var dy = 0;
+      if (rect.height > window.innerHeight - pad * 2) {
+        dy = rect.top - pad;
+      } else if (rect.top < pad) {
+        dy = rect.top - pad;
+      } else if (rect.bottom > window.innerHeight - pad) {
+        dy = rect.bottom - (window.innerHeight - pad);
+      }
+      if (rect.left < pad) dx = rect.left - pad;
+      else if (rect.right > window.innerWidth - pad) dx = rect.right - (window.innerWidth - pad);
+      if (dx || dy) map.panBy([dx, dy]);
     });
+  });
 
-    map.on('locationfound', onLocationFound);
-    map.on('locationerror', onLocationError);
-  	map.addLayer(osm);
+  showArea(48.1333, 11.5667, 11);
 
-    var bankerlid = location.search.split('bankerl=')[1] ? location.search.split('bankerl=')[1] : 0;
-    if (bankerlid != 0)
-    {
-        url = "http://overpass-api.de/api/interpreter?data=[out:json];node(" + bankerlid + ");out;";
-        $.getJSON(url, null, function (data) {
-            if (data.elements.length == 0){
-                alert("Des Bankerl Nummer " + bankerlid + "gibts nicht!");
-                return;
-            }
-            
-            e = data.elements[0];
-//            map.locate({setView: false, maxZoom: 16});
-            map.setView(new L.LatLng(e.lat, e.lon), 15);
-            });
-    }
-    else{
-        map.locate({setView: true, maxZoom: 16});
-    }
-    
-    
-    //OverPassAPI overlay
-    var opl = new L.OverPassLayer({
-      query: "http://overpass-api.de/api/interpreter?data=[out:json];node(BBOX)[amenity=bench];out;",
-      callback: function(data) {
-        if (firstcall) {
-            var bestbankerl = data.elements.slice(0,9);
-            $.each(bestbankerl , function( key, value ) {
-                //alert( key + ": " + value.id );
-                //$("#inforight").append(
-                //"<li><a href = \"index.html?bankerl="  + value.id + "\">" + value.id + "</a></li>");
-            });
-            firstcall = false;
-        }
-        for(i=0;i<data.elements.length;i++) {
-          e = data.elements[i];
-
-          if (e.id in this.instance._ids) return;
-          this.instance._ids[e.id] = true;
-          var pos = new L.LatLng(e.lat, e.lon);
-          var popup = this.instance._poiInfo(e.tags,e.id);
-          var color = e.tags.collection_times ? 'green':'red';
-          var circle = L.circle(pos, 50, {
-            color: color,
-            fillColor: '#0a0',
-            fillOpacity: 0.5
-          })
-          .bindPopup(popup);
-          this.instance.addLayer(circle);
-          this.instance._osmidtoleafletid[e.id] = this.instance.getLayerId(circle);
-        }
-      },
+  var bankerlMatch = location.search.match(/[?&]bankerl=(\d+)\b/);
+  if (bankerlMatch) {
+    var bankerlid = bankerlMatch[1];
+    var bankerlUrl = "https://overpass-api.de/api/interpreter?data=" +
+      encodeURIComponent("[out:json];node(" + bankerlid + ");out;");
+    fetchOverpass(bankerlUrl, 10000, 20000).then(function (data) {
+      var element = data.elements && data.elements[0];
+      if (!element || element.lat == null || element.lon == null) {
+        alert("Des Bankerl Nummer " + bankerlid + " gibts nicht!");
+        showArea(48.1333, 11.5667, 15);
+        return;
+      }
+      showArea(element.lat, element.lon, 16);
+    }).catch(function () {
+      alert("Die Bankerl-Daten konnten nicht geladen werden.");
+      showArea(48.1333, 11.5667, 15);
     });
-    map.addLayer(opl);
-    
-
-  </script>
-    <script type="text/javascript">
-        /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
-        var disqus_shortname = 'brotzeitbankerl'; // required: replace example with your forum shortname
-
-        /* * * DON'T EDIT BELOW THIS LINE * * */
-        (function() {
-            var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
-            dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
-            (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
-        })();
-    </script>
-    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
-    <a href="http://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
-<script type="text/javascript">(function(d, t, e, m){
-    // Async Rating-Widget initialization.
-    window.RW_Async_Init = function(){
-        RW.init({
-            huid: "178715",
-            uid: "d2c251970ba851055d31611c1c8c8eab",
-            source: "website",
-            options: {
-                "urid": "3",
-                "advanced": {
-                    "layout": {
-                        "align": {
-                            "hor": "center",
-                            "ver": "top"
-                        }
-                    }
-                },
-                "style": "ratingwidget",
-                "lng": "de"
-            } 
-        });
-        window.RW = RW;
-        RW.render();
-    };
-
-    // Append Rating-Widget JavaScript library.
-    var rw, s = d.getElementsByTagName(e)[0], id = "rw-js",
-        l = d.location, ck = "Y" + t.getFullYear() + 
-        "M" + t.getMonth() + "D" + t.getDate(), p = l.protocol,
-        f = (-1 < l.search.indexOf("DBG=") ? "" : ".min"),
-        a = ("https:" == p ? "secure." + m + "js/" : "js." + m);
-    if (d.getElementById(id)) return;              
-    rw = d.createElement(e);
-    rw.id = id; rw.async = true; rw.type = "text/javascript";
-    rw.src = p + "//" + a + "external" + f + ".js?ck=" + ck;
-    s.parentNode.insertBefore(rw, s);
-}(document, new Date(), "script", "rating-widget.com/"));
+  } else {
+    map.locate({ setView: true, maxZoom: 16 });
+  }
 </script>
 </body>
 </html>
-
