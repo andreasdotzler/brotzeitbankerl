@@ -49,54 +49,159 @@
     .leaflet-popup-content {
       width: auto !important;
       max-width: calc(100vw - 2rem);
+      max-height: calc(100dvh - 36px - env(safe-area-inset-top));
+      overflow-y: auto;
       margin: 12px 14px;
       font-size: 16px;
       line-height: 1.35;
     }
     .bb-popup {
-      width: min(260px, calc(100vw - 72px));
+      width: min(300px, calc(100vw - 72px));
     }
-    .bb-type { font-weight: 700; margin: 0 0 8px; }
-    .bb-route-label { margin: 10px 0 4px; font-size: 14px; }
-    .bb-actions, .bb-route {
+    .bb-head {
       display: flex;
-      flex-wrap: wrap;
+      align-items: flex-start;
       gap: 8px;
+      margin: 0 0 10px;
+      padding-right: 12px;
     }
-    .bb-actions a, .bb-route a {
-      flex: 1 1 140px;
-      min-height: 44px;
+    .bb-titles { flex: 1; min-width: 0; }
+    .bb-kind {
+      margin: 0 0 2px;
+      font-size: 12px;
+      line-height: 1.3;
+      font-weight: 600;
+      color: #6b645b;
+    }
+    .bb-title {
+      margin: 0;
+      font-weight: 700;
+      font-size: 17px;
+      line-height: 1.3;
+      white-space: pre-wrap;
+      overflow-wrap: break-word;
+    }
+    .bb-actions {
+      display: flex;
+      flex: none;
+      gap: 6px;
+    }
+    .bb-icon {
+      position: relative;
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      border: 0;
+      border-radius: 8px;
+      background: #f4f1ea;
+      color: #1a1a1a;
+      font: inherit;
+      text-decoration: none;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    .bb-icon svg { display: block; }
+    .bb-icon:hover,
+    .bb-icon:focus-visible {
+      background: #e7e1d4;
+      outline: none;
+    }
+    .bb-share.bb-copied::after {
+      content: attr(data-copied);
+      position: absolute;
+      top: calc(100% + 4px);
+      right: 0;
+      z-index: 1;
+      padding: 4px 6px;
+      border-radius: 4px;
+      background: #1a1a1a;
+      color: #fff;
+      font-size: 12px;
+      line-height: 1;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .bb-photos { display: flex; flex-direction: column; gap: 8px; margin: 0 0 10px; }
+    .bb-photos a { position: relative; display: block; line-height: 0; }
+    .bb-photos img {
+      width: 100%;
+      max-height: 180px;
+      object-fit: cover;
+      border-radius: 8px;
+      background: #eee;
+    }
+    .bb-photo-label {
+      position: absolute;
+      left: 8px;
+      bottom: 8px;
+      max-width: calc(100% - 16px);
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(26, 26, 26, 0.78);
+      color: #fff;
+      font-size: 12px;
+      line-height: 1.2;
+      pointer-events: none;
+    }
+    .bb-route-label {
+      margin: 10px 0 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #6b645b;
+    }
+    .bb-route {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .bb-route a {
+      min-height: 36px;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 8px 10px;
+      padding: 6px 8px;
       box-sizing: border-box;
       background: #f4f1ea;
       border-radius: 8px;
       text-align: center;
       text-decoration: none;
       color: #1a1a1a;
+      font-size: 13px;
+      line-height: 1.2;
       touch-action: manipulation;
     }
-    .bb-tags-wrap { max-height: 30vh; overflow: auto; margin-top: 10px; }
+    .bb-details { margin-top: 10px; font-size: 14px; }
+    .bb-details summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: #3a342c;
+      padding: 8px 0 2px;
+    }
+    .bb-tags-wrap { max-height: 30vh; overflow: auto; margin-top: 6px; }
     .bb-tags { width: 100%; border-collapse: collapse; font-size: 14px; }
     .bb-tags th, .bb-tags td {
       text-align: left;
       vertical-align: top;
       padding: 2px 8px 2px 0;
-    }
-    @media (max-width: 600px) {
-      .bb-actions a, .bb-route a { flex-basis: 100%; }
+      overflow-wrap: break-word;
     }
   </style>
 </head>
 <body>
 <div id="map"></div>
 <script>
-  var attrImpress = '<a href="https://andreasdotzler.github.io/impressum.html">Impressum</a>';
+  var attrImpress = '<a href="https://andreasdotzler.github.io/impressum.html">' + escapeHtml(t("impressum")) + "</a>";
   var attrOsm = 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
   var attrOverpass = 'POI via <a href="https://www.overpass-api.de/">Overpass API</a>';
-  var map = L.map("map");
+  var map = L.map("map", { zoomControl: false });
+  L.control.zoom({
+    zoomInTitle: t("zoomIn"),
+    zoomOutTitle: t("zoomOut")
+  }).addTo(map);
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     opacity: 0.7,
     attribution: [attrOsm, attrOverpass, attrImpress].join(" | ")
@@ -106,7 +211,7 @@
     options: { position: "bottomleft" },
     onAdd: function () {
       var div = L.DomUtil.create("div", "bb-legend");
-      div.innerHTML = '<span class="swatch bench"></span>Bankerl<span class="swatch table"></span>Picknicktisch';
+      div.innerHTML = '<span class="swatch bench"></span>' + escapeHtml(t("bench")) + '<span class="swatch table"></span>' + escapeHtml(t("picnicTable"));
       L.DomEvent.disableClickPropagation(div);
       L.DomEvent.disableScrollPropagation(div);
       return div;
@@ -127,7 +232,7 @@
   }
 
   function onLocationFound(e) {
-    L.marker(e.latlng).addTo(map).bindPopup("Du bist ungefähr hier.");
+    L.marker(e.latlng).addTo(map).bindPopup(t("youAreHere"));
     L.circle(e.latlng, {
       radius: e.accuracy / 2,
       color: "#1d4e89",
@@ -145,25 +250,95 @@
   map.on("locationerror", function () {
     showArea(48.1333, 11.5667, 15);
   });
+  function nudgePopup(popup) {
+    var el = popup.getElement();
+    if (!el) return;
+    var rect = el.getBoundingClientRect();
+    var pad = 8;
+    var dx = 0;
+    var dy = 0;
+    if (el.querySelector(".bb-popup")) {
+      dy = rect.top - pad;
+    } else if (rect.top < pad) {
+      dy = rect.top - pad;
+    } else if (rect.bottom > window.innerHeight - pad) {
+      dy = rect.bottom - (window.innerHeight - pad);
+    }
+    if (rect.left < pad) dx = rect.left - pad;
+    else if (rect.right > window.innerWidth - pad) dx = rect.right - (window.innerWidth - pad);
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) map.panBy([dx, dy], { animate: false });
+  }
+
+  function showCopied(button) {
+    button.classList.add("bb-copied");
+    button.setAttribute("aria-label", t("copied"));
+    clearTimeout(button._bbCopiedTimer);
+    button._bbCopiedTimer = setTimeout(function () {
+      button.classList.remove("bb-copied");
+      button.setAttribute("aria-label", t("share"));
+    }, 1600);
+  }
+
+  function copyShareUrl(url, button) {
+    function legacyCopy() {
+      try {
+        var input = document.createElement("textarea");
+        input.value = url;
+        input.setAttribute("readonly", "");
+        input.style.position = "fixed";
+        input.style.left = "-9999px";
+        document.body.appendChild(input);
+        input.select();
+        var ok = document.execCommand("copy");
+        document.body.removeChild(input);
+        if (ok) showCopied(button);
+      } catch (err) {}
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(function () {
+        showCopied(button);
+      }).catch(legacyCopy);
+      return;
+    }
+    legacyCopy();
+  }
+
   map.on("popupopen", function (e) {
-    requestAnimationFrame(function () {
-      var el = e.popup.getElement();
-      if (!el) return;
-      var rect = el.getBoundingClientRect();
-      var pad = 8;
-      var dx = 0;
-      var dy = 0;
-      if (rect.height > window.innerHeight - pad * 2) {
-        dy = rect.top - pad;
-      } else if (rect.top < pad) {
-        dy = rect.top - pad;
-      } else if (rect.bottom > window.innerHeight - pad) {
-        dy = rect.bottom - (window.innerHeight - pad);
+    var el = e.popup.getElement();
+    if (el) {
+      var shareBtn = el.querySelector(".bb-share");
+      if (shareBtn && !shareBtn._bbWired) {
+        shareBtn._bbWired = true;
+        shareBtn.addEventListener("click", function (ev) {
+          ev.preventDefault();
+          var url = shareBtn.getAttribute("data-url");
+          var title = shareBtn.getAttribute("data-title") || "Brotzeitbankerl";
+          if (navigator.share) {
+            navigator.share({ title: title, text: title, url: url }).catch(function (err) {
+              if (err && err.name === "AbortError") return;
+              copyShareUrl(url, shareBtn);
+            });
+            return;
+          }
+          copyShareUrl(url, shareBtn);
+        });
       }
-      if (rect.left < pad) dx = rect.left - pad;
-      else if (rect.right > window.innerWidth - pad) dx = rect.right - (window.innerWidth - pad);
-      if (dx || dy) map.panBy([dx, dy]);
-    });
+      var details = el.querySelector(".bb-details");
+      if (details && !details._bbWired) {
+        details._bbWired = true;
+        details.addEventListener("toggle", function () {
+          requestAnimationFrame(function () { nudgePopup(e.popup); });
+        });
+      }
+      var images = el.querySelectorAll("img");
+      for (var i = 0; i < images.length; i++) {
+        if (images[i].complete) continue;
+        images[i].addEventListener("load", function () {
+          requestAnimationFrame(function () { nudgePopup(e.popup); });
+        });
+      }
+    }
+    requestAnimationFrame(function () { nudgePopup(e.popup); });
   });
 
   showArea(48.1333, 11.5667, 11);
@@ -176,13 +351,14 @@
     fetchOverpass(bankerlUrl, 10000, 20000).then(function (data) {
       var element = data.elements && data.elements[0];
       if (!element || element.lat == null || element.lon == null) {
-        alert("Des Bankerl Nummer " + bankerlid + " gibts nicht!");
+        alert(t("missingBench", { id: bankerlid }));
         showArea(48.1333, 11.5667, 15);
         return;
       }
+      opl.setFocus(bankerlid);
       showArea(element.lat, element.lon, 16);
     }).catch(function () {
-      alert("Die Bankerl-Daten konnten nicht geladen werden.");
+      alert(t("loadFailed"));
       showArea(48.1333, 11.5667, 15);
     });
   } else {
